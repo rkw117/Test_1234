@@ -1,0 +1,2047 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>IBASE 26th Anniversary</title>
+
+  <style>
+    :root{
+      --border:#cfcfcf;
+      --text:#222;
+      --muted:#666;
+      --accent:#2563eb;
+      --seatFill:#ffffff;
+      --seatStroke:#444;
+      --aisle:#efefef;
+      --stage:#f6c200;
+    }
+
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif;
+      color:var(--text);
+      background:#fafafa;
+    }
+
+    header{
+      max-width:1200px;
+      margin:0 auto;
+      padding:16px 16px 8px;
+    }
+
+    h1{
+      margin:0 0 10px;
+      font-size:18px;
+    }
+
+    .toolbar{
+      display:grid;
+      grid-template-columns:1fr auto auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    input{
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      font-size:14px;
+      outline:none;
+      background:#fff;
+    }
+
+    input:focus{
+      border-color:var(--accent);
+      box-shadow:0 0 0 3px rgba(37,99,235,.15);
+    }
+
+    button{
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#fff;
+      cursor:pointer;
+      font-size:14px;
+    }
+
+    button:hover{
+      background:#f5f5f5;
+    }
+
+    .hint{
+      margin-top:8px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.5;
+    }
+
+    main{
+      max-width:1200px;
+      margin:0 auto;
+      padding:8px 16px 24px;
+    }
+
+    .frame{
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:10px;
+      overflow:auto;
+    }
+
+    svg{
+      width:100%;
+      height:auto;
+      min-width:980px;
+    }
+
+    @media (max-width: 768px) {
+      svg{
+        min-width:0;
+      }
+    }
+
+    .seat circle{
+      fill:var(--seatFill);
+      stroke:var(--seatStroke);
+      stroke-width:2;
+    }
+
+    .seat text{
+      font-size:14px;
+      font-weight:700;
+      text-anchor:middle;
+      dominant-baseline:middle;
+      fill:#111;
+      pointer-events:none;
+    }
+
+    .seat.big text{
+      font-size:15px;
+    }
+
+    .seat.hit circle{
+      stroke:#e11d48;
+      stroke-width:4;
+      filter:drop-shadow(0 0 6px rgba(225,29,72,.45));
+    }
+
+    .label{
+      font-size:14px;
+      fill:#333;
+      font-weight:700;
+    }
+
+    .label.muted{
+      fill:#666;
+      font-weight:600;
+      font-size:13px;
+    }
+
+    .aisle{
+      fill:var(--aisle);
+      stroke:#d0d0d0;
+      stroke-width:1.5;
+      rx:8;
+    }
+
+    .stage{
+      fill:var(--stage);
+      stroke:#caa000;
+      stroke-width:2;
+      rx:10;
+    }
+
+    .outer{
+      fill:none;
+      stroke:#777;
+      stroke-width:2;
+      rx:14;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>座位圖</h1>
+
+    <div class="toolbar">
+      <input id="q" type="text" placeholder="搜尋桌號或姓名：127、王小明" />
+      <button id="btnSearch" type="button">搜尋</button>
+      <button id="btnReset" type="button">重設</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="frame">
+      <svg id="map" viewBox="0 0 1000 560" role="img" aria-label="127桌座位圖">
+
+        <rect class="outer" x="20" y="20" width="960" height="520"></rect>
+
+        <rect class="stage" x="400" y="80" width="220" height="80"></rect>
+        <text class="label" x="500" y="125">舞台</text>
+
+        <rect class="aisle" x="280" y="80" width="45" height="405"></rect>
+        <text class="label muted" x="347.5" y="270" transform="rotate(-90 347.5 310)">升降星光大道</text>
+
+        <rect class="aisle" x="690" y="130" width="45" height="355"></rect>
+        <text class="label muted" x="702.5" y="325" transform="rotate(-90 702.5 310)">升降星光大道</text>
+
+        <rect class="aisle" x="210" y="21" width="180" height="50"></rect>
+        <text class="label" x="280" y="40">L E D</text>
+
+        <rect class="aisle" x="625" y="21" width="180" height="50"></rect>
+        <text class="label" x="695" y="40">L E D</text>
+
+        <rect class="aisle" x="470" y="252" width="70" height="35"></rect>
+        <text class="label" x="485" y="275">攝影台</text>
+
+        <g id="seats"></g>
+      </svg>
+    </div>
+
+    <div id="infoBox" style="
+      background:#fff;
+      border:1px solid #cfcfcf;
+      border-radius:14px;
+      padding:12px 14px;
+      margin-bottom:10px;
+      font-size:14px;
+    ">
+      <div style="font-weight:800; margin-bottom:6px;">尚未選擇桌位</div>
+      <div style="color:#666; font-size:13px;">請點選桌位顯示桌號與人名。</div>
+    </div>
+  </main>
+
+  <script>
+    // 每桌的人名清單
+ const seatNames = {
+    "1": [
+        "許吳椿",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "10": [
+        "林世偉",
+        "粘志豪",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "100": [
+        "侯紀焜",
+        "俞智元",
+        "翁維辰",
+        "鍾承諺",
+        "林佳穎",
+        "黃宇麒",
+        "林育萱",
+        "余思韻",
+        "余思韻眷",
+        "呂仲棠"
+    ],
+    "101": [
+        "陳冠州",
+        "許雯涵",
+        "李祐瑄",
+        "謝銘洋",
+        "林斯盈",
+        "吳宜儒",
+        "賴雅鈴",
+        "練秀佾",
+        "張如斯",
+        "張如斯眷"
+    ],
+    "102": [
+        "崔家騏 ",
+        "詹嘉仁",
+        "江家賢",
+        "江家賢眷",
+        "王耀宗",
+        "王耀宗眷",
+        "林文彬",
+        "趙承忠",
+        "范士平 ",
+        "崔克強"
+    ],
+    "103": [
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "104": [
+        "陳信瑜",
+        "涂仲源",
+        "林琬瑜",
+        "黃麒成",
+        "石紹平",
+        "古珮臻",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "105": [
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "106": [
+        "楊玉俊",
+        "陳林興",
+        "李佩容",
+        "楊欣庭",
+        "劉育成",
+        "陳明禮",
+        "蔡友福",
+        "張學麟"
+    ],
+    "107": [
+        "余斌",
+        "游依靜",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "108": [
+        "王永寬",
+        "洪惠美",
+        "王志梅",
+        "曾成瑛",
+        "李佳蓉",
+        "楊智雲",
+        "貴賓",
+        "貴賓"
+    ],
+    "109": [
+        "李瑞雲",
+        "莊惠鈞",
+        "黃秋禎",
+        "高天揚",
+        "虞子萱",
+        "邱文斌",
+        "曾雅蘭",
+        "唐千涵",
+        "陳弘豪",
+        "周凡"
+    ],
+    "11": [
+        "葉美賢",
+        "葉美賢眷",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "110": [
+        "林士生",
+        "張國翰",
+        "李丕籌",
+        "李秀美",
+        "蔡一德",
+        "洪宇聖",
+        "江哲賢",
+        "謝秉樸",
+        "林致宏"
+    ],
+    "111": [
+        "呂學晉",
+        "呂學晉眷",
+        "江茂益",
+        "江茂益眷",
+        "戴慶錩",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "112": [
+        "廣錠",
+        "廣錠",
+        "廣錠",
+        "廣錠",
+        "廣錠",
+        "廣錠",
+        "廣錠",
+        "廣錠",
+        "廣錠",
+        "廣錠"
+    ],
+    "113": [
+        "林雪慧",
+        "陳俞岑",
+        "林慧玲",
+        "吳依紋",
+        "陳怡璇",
+        "彭郁文",
+        "黃佳雯",
+        "陳珮群",
+        "張尤玟",
+        "黃姿妃"
+    ],
+    "114": [
+        "吳振宇",
+        "林岱融",
+        "許育誠",
+        "邱垂慶",
+        "陳益智",
+        "蕭謙縉",
+        "張清松",
+        "林孟億",
+        "游春龍",
+        "黃彥翔"
+    ],
+    "115": [
+        "葉建忠",
+        "葉建忠眷",
+        "李彥龍",
+        "李彥龍眷",
+        "楊智開",
+        "李哲維",
+        "余以欣",
+        "李天揚",
+        "陳柏穎",
+        "宋宏祥"
+    ],
+    "116": [
+        "蔡其智",
+        "黃宏裕",
+        "黃宏裕眷",
+        "姚健男",
+        "姚健男眷",
+        "杜尚宇",
+        "呂致廷",
+        "邱顯銘",
+        "林倫慶",
+        "陳逸安"
+    ],
+    "117": [
+        "許薰云",
+        "羅佩如",
+        "李柏文",
+        "葛祐成",
+        "顏丞鋒",
+        "林松儀",
+        "吳奇湳",
+        "余品杰"
+    ],
+    "118": [
+        "彭宇廷",
+        "廖世豪",
+        "黃晴",
+        "張宗閔",
+        "何妍霏",
+        "邱立榮",
+        "李子傑",
+        "李晉文",
+        "王韻婷",
+        "鄭宜芳"
+    ],
+    "119": [
+        "李辛梅",
+        "吳詩盈",
+        "彭郁琳",
+        "何淑雲",
+        "彭淑媛",
+        "李桂芳",
+        "朱金梅",
+        "曾玉蓉",
+        "葉韻慈",
+        "吳立榕"
+    ],
+    "12": [
+        "林韋成",
+        "曾琬芸",
+        "童惠國",
+        "童惠國眷",
+        "周經益",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "120": [
+        "丁志偉",
+        "徐春生",
+        "易莉耘",
+        "易莉耘眷",
+        "曾麗璇",
+        "李素珠",
+        "楊水花",
+        "胡雅芳",
+        "胡雅萍",
+        "黃建貴"
+    ],
+    "121": [
+        "陳秋芬",
+        "陳秋芬眷",
+        "賴蘭香",
+        "賴蘭香眷",
+        "王雅芬",
+        "劉蘋慧",
+        "林琴美",
+        "王淑惠",
+        "呂淑玲",
+        "周柔辰"
+    ],
+    "122": [
+        "傅麗娟",
+        "張少瑄",
+        "曾美芯",
+        "阮氏賢",
+        "阮氏水",
+        "黎氏美緣",
+        "阮氏江",
+        "黎莊玉欣",
+        "楊文德",
+        "洪志綱"
+    ],
+    "123": [
+        "邱文麒",
+        "羅銘立",
+        "潘孟君",
+        "潘孟君眷",
+        "連詔茜",
+        "黃柏凱",
+        "彭月琴",
+        "蔡邦奇",
+        "林政輝",
+        "龔家弘"
+    ],
+    "124": [
+        "楊欣予",
+        "楊欣予眷",
+        "黃詣勝",
+        "吳詩盷",
+        "潘氏林",
+        "荳氏春",
+        "黃氏紅",
+        "簡阮氏梅",
+        "陽氏詩",
+        "阮氏清芳"
+    ],
+    "125": [
+        "李惠雯",
+        "劉怡秀",
+        "張淑芬",
+        "馬宗緯",
+        "丁氏華",
+        "微氏青翠",
+        "阮氏珩",
+        "裴氏梅香",
+        "趙欣恬"
+    ],
+    "126": [
+        "汪怡宏",
+        "阮氏祿",
+        "阮氏河",
+        "裴氏貞",
+        "范氏碧",
+        "黃氏美蓮",
+        "陳氏翠紅",
+        "陳氏翠紅眷",
+        "鄭寶燕",
+        "鄭寶燕眷"
+    ],
+    "127": [
+        "蔡幸岸",
+        "吳庭萱",
+        "周欣潔",
+        "彭心柔",
+        "張綜顯",
+        "謝昕紜",
+        "盧奕銘",
+        "謝宗晃",
+        "高佳蘭",
+        "萬秀枝",
+        "李靜如"
+    ],
+    "13": [
+        "龍鵬文",
+        "王建翔",
+        "邱姝蕓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "14": [
+        "速博康",
+        "速博康",
+        "速博康",
+        "速博康",
+        "速博康",
+        "速博康",
+        "速博康",
+        "速博康",
+        "速博康",
+        "速博康"
+    ],
+    "16": [
+        "潘怡君",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "17": [
+        "陳章泰",
+        "劉昭言",
+        "蔡銧宇",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "18": [
+        "簡義芳",
+        "張雅綸",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "19": [
+        "楊日宗",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "2": [
+        "李家富",
+        "商志宏",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "20": [
+        "嚴忠廉",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "21": [
+        "陳鴻祥",
+        "陳鴻祥眷",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "22": [
+        "郭哲宏",
+        "溫姿柔",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "23": [
+        "李忠道",
+        "黃子育",
+        "徐俊豪",
+        "Sikka",
+        "歐陽宏爵",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "24": [
+        "郭大維",
+        "林尊源",
+        "邱莉鈐",
+        "黃國峯",
+        "貴賓",
+        "貴賓"
+    ],
+    "25": [
+        "陳筱涵",
+        "徐俊豪",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "26": [
+        "解桓堯",
+        "解桓堯眷",
+        "陳元閔",
+        "傅本錱",
+        "傅本錱眷",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "27": [
+        "林碧霞",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "28": [
+        "陳翰廷",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "29": [
+        "廖美蘭",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "3": [
+        "林秋旭",
+        "林泰生",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "30": [
+        "張寶霏",
+        "張寶霏眷",
+        "陳迪森",
+        "陳迪森眷",
+        "謝孟源",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "31": [
+        "陳雅萍",
+        "林家聖",
+        "蘇豫萱",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "32": [
+        "廖淑娟",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "33": [
+        "崔嘉美",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "34": [
+        "鄧智元",
+        "邱斌全",
+        "林席名",
+        "鄒翠華",
+        "陳麗娟",
+        "陳麗娟眷",
+        "王秀玲",
+        "林宜芳",
+        "廖怡雯",
+        "林冠吟"
+    ],
+    "35": [
+        "王育文",
+        "謝宗晃眷",
+        "陳泓銘",
+        "陳泓銘眷",
+        "謝宗銘",
+        "許富鈞",
+        "陳富瑋",
+        "黃修葦",
+        "邱俊雄",
+        "楊氏瑩"
+    ],
+    "36": [
+        "林明德",
+        "林明德眷",
+        "黃祥仁",
+        "黃俊元",
+        "許金漢",
+        "吳聲祁",
+        "李維斌",
+        "陳玉瑩",
+        "阮氏惠",
+        "駱逸展"
+    ],
+    "37": [
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "38": [
+        "施漢宗",
+        "侯智仁",
+        "陳姿毓",
+        "謝昇宏",
+        "呂承峻",
+        "李沅錞",
+        "潘安婕",
+        "陳亭蓉",
+        "姜宜昕",
+        "連怡瑄"
+    ],
+    "39": [
+        "鄭人豪",
+        "賴冠廷",
+        "林怡秀",
+        "許珮慈",
+        "周宗翰",
+        "鄭皓遠",
+        "陳杰君",
+        "陳杰君眷",
+        "周士鈞",
+        "周士鈞眷"
+    ],
+    "4": [
+        "羅玉容",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "40": [
+        "羅士哲",
+        "陳柏翰",
+        "徐瑞宏",
+        "張佳儀",
+        "鄭博文",
+        "葉祐正",
+        "游載智",
+        "游載智眷",
+        "許展尉",
+        "蘇惠媂"
+    ],
+    "41": [
+        "李宏倉",
+        "陳建霖",
+        "陳志豪",
+        "許修豪",
+        "王志樹",
+        "王薏涵",
+        "紀厚任",
+        "湯漢文",
+        "鍾光榮",
+        "貴賓"
+    ],
+    "42": [
+        "石于凌",
+        "黃淑貞",
+        "黃淑貞眷屬",
+        "王瀞慧",
+        "郭玟丰",
+        "黃氏容",
+        "黎氏賢",
+        "阮氏映月",
+        "陳春燕"
+    ],
+    "43": [
+        "盧柏宏",
+        "林建丞",
+        "洪光男",
+        "陳界源",
+        "陳界源眷",
+        "林勝豐",
+        "林勝豐眷",
+        "林慶勝",
+        "李碧華",
+        "劉宣圻"
+    ],
+    "44": [
+        "吳洪斌",
+        "吳洪斌眷",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "45": [
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "46": [
+        "江佳士",
+        "馬揚婕",
+        "陳翊慈",
+        "李世維",
+        "陳芊叡",
+        "李庭萱",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "47": [
+        "池珊珊",
+        "林家弘",
+        "張爾芝",
+        "朱素恕",
+        "王貞雅",
+        "王志軒",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "48": [
+        "褚美娥",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "49": [
+        "王佩蓁",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "5": [
+        "陳友南",
+        "陳友南眷",
+        "陳世雄",
+        "商志宏眷",
+        "吳采玲",
+        "宋文玉",
+        "韋吉紘",
+        "韋博軒",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "50": [
+        "吳信輝",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "51": [
+        "林志雄",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "54": [
+        "阮 氏光",
+        "黎氏深",
+        "范氏花",
+        "阮氏林",
+        "陳氏青云",
+        "阮氏青鸞",
+        "吳氏春",
+        "黎氏海燕",
+        "杜秋章"
+    ],
+    "55": [
+        "鄧氏莊",
+        "屈氏明秋",
+        "武氏茶",
+        "武秋河",
+        "阮氏玄",
+        "杜 氏 蓮",
+        "阮氏化",
+        "泰氏燕芎",
+        "胡氏玄",
+        "阮氏香"
+    ],
+    "56": [
+        "黃文英",
+        "張詠婷",
+        "周映蓉",
+        "吳佳蓉",
+        "吳佳蓉眷",
+        "許竣凱",
+        "楊經河",
+        "鄧佩君",
+        "林秀里",
+        "溫米玉"
+    ],
+    "57": [
+        "闕建茂",
+        "闕建茂眷",
+        "黃欣怡",
+        "黃欣怡眷",
+        "何正芬",
+        "何正芬眷",
+        "蔡麗華",
+        "蔡麗華眷",
+        "郭淑娟",
+        "郭淑娟眷"
+    ],
+    "58": [
+        "阮氏柳",
+        "黃垂陽",
+        "阮氏倩",
+        "花氏玲",
+        "吳氏梅玲",
+        "武如瓊",
+        "阮玉欣",
+        "阮氏和"
+    ],
+    "59": [
+        "李慧雪",
+        "李慧雪眷",
+        "李雅惠",
+        "陳美連",
+        "陳淑燕",
+        "黃美理",
+        "曹麗梅",
+        "曹麗梅眷",
+        "黃淑愛",
+        "顏裕芬"
+    ],
+    "6": [
+        "陳志誠",
+        "陳志誠眷",
+        "魏君儀",
+        "陳慧禎",
+        "陳慧禎眷",
+        "吳玉娟",
+        "潘蓓芬",
+        "陳寶惠",
+        "陳寶惠眷",
+        "葉雯雯"
+    ],
+    "60": [
+        "蘇志明",
+        "鄭惠文",
+        "李莉莉",
+        "謝麗卿",
+        "陳妙宏",
+        "楊月梅",
+        "黃碧娥",
+        "黃有利",
+        "林建宏",
+        "游正宏"
+    ],
+    "61": [
+        "詹松錫",
+        "詹松錫眷",
+        "蔡榮豪",
+        "蔡榮豪眷",
+        "高淑貞",
+        "高淑貞眷",
+        "楊佳馨",
+        "楊佳馨眷",
+        "黃寶瑩",
+        "溫瑞琴"
+    ],
+    "62": [
+        "盧柏宏",
+        "廖志明",
+        "洪光男",
+        "陳界源",
+        "陳界源眷",
+        "林勝豐",
+        "林勝豐眷",
+        "林慶勝",
+        "駱逸展",
+        "劉宣圻"
+    ],
+    "63": [
+        "謝碧璇",
+        "謝碧璇眷",
+        "李映萱",
+        "李映萱眷",
+        "陳欣宜",
+        "魏淑貞",
+        "許瑜婷",
+        "郭淑美",
+        "盧姵伶",
+        "王太良"
+    ],
+    "64": [
+        "高嫺芳",
+        "高嫺芳眷",
+        "黃碧枝",
+        "陳春燕",
+        "陳春燕眷",
+        "鄭月珠",
+        "戴湘芸",
+        "戴湘芸眷",
+        "陳淑金",
+        "陳美珠"
+    ],
+    "65": [
+        "李柏宏",
+        "李融鋼",
+        "張全慶",
+        "呂振昌",
+        "呂宜庭",
+        "袁練城",
+        "袁練城眷",
+        "邱立琛",
+        "邱立琛眷",
+        "王忠義"
+    ],
+    "66": [
+        "阮氏紅",
+        "陳氏垂",
+        "凌氏東",
+        "阮氏山",
+        "潘氏清水",
+        "鄧氏心",
+        "黎氏青藍",
+        "陳氏梅",
+        "阮氏芳",
+        "黎氏嫺"
+    ],
+    "67": [
+        "劉燕鳳",
+        "鄭明豐",
+        "劉懷德",
+        "陳岳志",
+        "陳吉利",
+        "張佩如",
+        "陳羿靜",
+        "柳志強",
+        "黃瑞文",
+        "林佳慧"
+    ],
+    "68": [
+        "蔡吉松",
+        "陳俊樺",
+        "顏名宏",
+        "蔡怡婷",
+        "蔡怡婷眷",
+        "張智茵",
+        "林奕成",
+        "廖志明",
+        "鄧滄沂",
+        "鄧滄沂眷"
+    ],
+    "69": [
+        "鄭祺諺",
+        "鄭祺諺眷",
+        "黃建智",
+        "黃建智眷",
+        "葉宗翰",
+        "葉宗翰眷",
+        "鄭如芹",
+        "陳芳萍",
+        "李俊霖",
+        "陳國祥"
+    ],
+    "7": [
+        "龔世鴻",
+        "龔世鴻眷",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "70": [
+        "陳良維",
+        "黃耀佐",
+        "黃慕嚴",
+        "趙仲凱",
+        "葉宇峻",
+        "凃政群",
+        "張欽淵",
+        "陳秀蘭",
+        "陳惠君眷",
+        "陳惠君"
+    ],
+    "71": [
+        "陳亭羽",
+        "周星繻",
+        "張家祥",
+        "蔡雅芳",
+        "蔡春宜",
+        "李姿妤",
+        "武氏香",
+        "阮氏秋惠",
+        "潘氏垂玲",
+        "陶氏鳳"
+    ],
+    "72": [
+        "陳建志",
+        "陳建志眷",
+        "陳建光",
+        "林玉雪",
+        "陳芝庭",
+        "葉佳鑫",
+        "高明聰",
+        "陳楷翔",
+        "粘琬宜",
+        "林書誌"
+    ],
+    "73": [
+        "范凱維",
+        "范凱維眷",
+        "袁春香",
+        "蔡文雄",
+        "陳儀昀",
+        "林淑瑩",
+        "鄒格香",
+        "張瑞能",
+        "張瑞能眷",
+        "羅文彬"
+    ],
+    "74": [
+        "李詩晴",
+        "蘇可盈",
+        "郭欣蓉",
+        "潘宜蓁",
+        "謝孟源",
+        "蔡皓丞",
+        "邱麗蓉",
+        "王羽彤",
+        "黃怡靜",
+        "李玉嬌"
+    ],
+    "75": [
+        "曾得凱",
+        "洪楷峻",
+        "連友慈",
+        "古承諺",
+        "古承諺眷",
+        "鍾雲丞",
+        "江若蘋",
+        "張政泓",
+        "朱乙姍",
+        "黃偉倫"
+    ],
+    "76": [
+        "許雅雯",
+        "江弦宗",
+        "廖子媛",
+        "黃芝庭",
+        "古傑旭",
+        "章丹俐",
+        "陳昱豪",
+        "蔣宗岳",
+        "李佩珊",
+        "楊靖潁"
+    ],
+    "77": [
+        "洪文偉",
+        "蕭惟桀",
+        "林美月",
+        "康艷琳",
+        "湯又臻",
+        "鄭曉娜",
+        "許秀蘭",
+        "許秀蘭眷",
+        "邱麗靜",
+        "邱麗靜眷"
+    ],
+    "78": [
+        "陳賜彥",
+        "張玉龍",
+        "謝政軒",
+        "鍾文皓",
+        "徐正庭",
+        "吳政澤",
+        "林志明",
+        "許曉羚",
+        "龔俊宇"
+    ],
+    "79": [
+        "蔡文乾",
+        "王欣怡",
+        "賴柏宏",
+        "陳夢宣",
+        "范氏亮",
+        "洪佳雯",
+        "李芯翎",
+        "馬翊勛",
+        "許源益"
+    ],
+    "8": [
+        "潘烟全",
+        "潘烟全眷",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "80": [
+        "鄭玉燕",
+        "麥永晴",
+        "盛中台",
+        "梁世穎",
+        "彭康榮",
+        "陳彥儒",
+        "林宇博",
+        "鐘文博",
+        "徐婕芸",
+        "黎健安"
+    ],
+    "81": [
+        "黃書芸",
+        "蘇慶龍",
+        "陳俊宏",
+        "陳俊宏眷",
+        "胡斯婷",
+        "胡斯婷眷",
+        "胡斯婷眷",
+        "胡斯婷眷",
+        "許馨瞳",
+        "徐嘉成"
+    ],
+    "82": [
+        "張錦霞",
+        "鍾艾 ",
+        "何沁雯",
+        "謝燕妮",
+        "卓欣怡",
+        "蘇家晶",
+        "廖佳玲",
+        "彭可喬",
+        "彭庭甄",
+        "吳氏懷"
+    ],
+    "83": [
+        "蘇家愉",
+        "官秀惠",
+        "王惠玲",
+        "廖芳欣",
+        "楊采婕",
+        "邱雅萍",
+        "游宛楹",
+        "彭鳳珠",
+        "蕭椿諭",
+        "游宛柔"
+    ],
+    "84": [
+        "王金玉",
+        "范翠芬",
+        "劉佩玲",
+        "蔡惠娜",
+        "楊莉珠",
+        "楊莉珠眷",
+        "劉宸鳴",
+        "劉子源",
+        "陳氏方垂",
+        "裴氏錦雲"
+    ],
+    "85": [
+        "劉育廷",
+        "戴宏軒",
+        "劉惠子",
+        "劉惠子眷",
+        "莊雯婷",
+        "李國魂",
+        "吳雨芯",
+        "劉育辰",
+        "陳佳欣",
+        "李德格"
+    ],
+    "87": [
+        "裴氏玲芝",
+        "阮氏千",
+        "阮氏秋姮",
+        "阮氏姮",
+        "馬氏娟",
+        "阮氏草",
+        "良氏八",
+        "凌氏江",
+        "潘芹玥",
+        "潘芹玥眷"
+    ],
+    "88": [
+        "黃惠貞",
+        "劉仁美",
+        "陳木英",
+        "張曉惠",
+        "蕭愛齡",
+        "張惠淇",
+        "藍華麗",
+        "趙麗玲",
+        "吳明君",
+        "黃貞慧"
+    ],
+    "89": [
+        "林秀惠",
+        "鄒孟容",
+        "林媚",
+        "蔡子綾",
+        "羅玉杏",
+        "皮美蓉",
+        "鄭潔如",
+        "杜氏璇",
+        "阮氏金香",
+        "阮氏容"
+    ],
+    "9": [
+        "林明男",
+        "林明男眷",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ],
+    "91": [
+        "蔡政錡",
+        "王治舜",
+        "張銘達",
+        "張銘達眷",
+        "彭琦雯 ",
+        "李佳純",
+        "吳世偉",
+        "吳世偉眷",
+        "林瑞琪"
+    ],
+    "92": [
+        "林紀恩",
+        "蕭世璋",
+        "何秉倉",
+        "何秉倉眷",
+        "趙婉君",
+        "趙婉君眷",
+        "吳宜學",
+        "林建志",
+        "林建志眷",
+        "楊孟豪"
+    ],
+    "93": [
+        "周宏吉",
+        "邱梓銓",
+        "盧綺園",
+        "陳佰欣",
+        "鮑靖臻",
+        "張晏寧",
+        "曾淑惠",
+        "阮氏宣",
+        "黃智棟",
+        "黃智棟眷"
+    ],
+    "94": [
+        "陳映儒",
+        "蔡一銘",
+        "賴淑榮",
+        "梁氏河",
+        "吳翊妃",
+        "陳禹卉",
+        "王又正"
+    ],
+    "95": [
+        "蕭仲鈞",
+        "蕭仲鈞眷",
+        "鄭如吟",
+        "宋文龍",
+        "李靜怡",
+        "陳秋利",
+        "鄭禮文",
+        "沈國堃",
+        "沈國堃眷"
+    ],
+    "96": [
+        "簡錫煾",
+        "郭柏翔",
+        "林志陞",
+        "巫亭瑩",
+        "周長慶",
+        "盧龍慶",
+        "盧龍慶眷",
+        "王俊彥",
+        "陳士堯"
+    ],
+    "97": [
+        "洪瑞隆",
+        "吳禹紳",
+        "朱文彬",
+        "林炅達",
+        "徐志豪",
+        "莊明諺",
+        "連偉丞",
+        "張力瑋",
+        "歐相助",
+        "童敬淳"
+    ],
+    "98": [
+        "李蕙如",
+        "陳碧君",
+        "呂紹寧",
+        "黃詩涵",
+        "許益銘",
+        "郭宇哲",
+        "林建忠",
+        "吳奕羲",
+        "張福濬",
+        "張哲綸"
+    ],
+    "99": [
+        "蕭巧雲",
+        "施佩汝",
+        "施佩汝眷",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓",
+        "貴賓"
+    ]
+}
+;
+
+    // 取得桌號對應的人名，若沒有設定則回傳空陣列
+    function getNames(no){
+      return seatNames[String(no)] || [];
+    }
+
+    // 座位資料
+    // no 是桌號
+    // x y 是 SVG 座標位置
+    // r 是桌位圓形半徑
+    const seats = [];
+
+    // 建立一筆座位資料並加入 seats
+    function add(no, x, y, r=18){
+      seats.push({
+        no: String(no),
+        x,
+        y,
+        r,
+        names: getNames(no)
+      });
+    }
+
+    // 左上角兩桌
+    add(52, 150, 105, 18);
+    add(53, 250, 105, 18);
+
+    // 左區 54 到 89
+    const lx = [100,150,200,250];
+    const leftRows = [
+      [54,55,56,57],
+      [58,59,60,61],
+      [62,63,64,65],
+      [66,67,68,69],
+      [70,71,72,73],
+      [74,75,76,77],
+      [78,79,80,81],
+      [82,83,84,85],
+      [86,87,88,89]
+    ];
+    const leftY = [150,190,230,270,310,350,390,430,470];
+
+    for (let i=0; i<leftRows.length; i++){
+      for (let j=0; j<4; j++){
+        add(leftRows[i][j], lx[j], leftY[i], 18);
+      }
+    }
+
+    // 左中直列 42 到 51
+    add(42, 355, 105, 18);
+    const col42to51 = [43,44,45,46,47,48,49,50,51];
+    const colY = [150,190,230,270,310,350,390,430,470];
+
+    for (let i=0; i<col42to51.length; i++){
+      add(col42to51[i], 355, colY[i], 18);
+    }
+
+    // 主桌 1 到 5
+    add(1, 401, 215, 20);
+    add(2, 460, 215, 20);
+    add(3, 515, 215, 20);
+    add(4, 570, 215, 20);
+    add(5, 620, 205, 20);
+
+    // 右上方 127 與 6
+    add(127, 710, 105, 18);
+    add(6,   658, 170, 18);
+
+    // 右側直列
+    const rightCol = [
+      {no:11, y:240},
+      {no:18, y:287},
+      {no:19, y:335},
+      {no:26, y:380},
+      {no:33, y:425},
+      {no:40, y:470}
+    ];
+    rightCol.forEach(o => add(o.no, 658, Math.min(o.y, 470), 18));
+
+    // 中間桌位
+    add(7,  400, 270, 18);
+    add(8,  442, 270, 18);
+    add(9,  568, 270, 18);
+    add(10, 610, 270, 18);
+
+    // 12 到 17
+    const row12 = [12,13,14,15,16,17];
+    const x12 = [400,442,484,526,568,610];
+    const y12 = 320;
+
+    for (let i=0; i<row12.length; i++){
+      add(row12[i], x12[i], y12, 18);
+    }
+
+    // 20 到 25
+    const row20 = [20,21,22,24,25];
+    const x20 = [400,442,484,568,610];
+    const y20 = 370;
+
+    for (let i=0; i<row20.length; i++){
+      add(row20[i], x20[i], y20, 18);
+    }
+
+    // 23 30 37
+    add(23, 526, 362, 18);
+    add(30, 526, 408, 18);
+    add(37, 526, 452, 18);
+
+    // 27 到 32
+    const row27 = [27,28,29,31,32];
+    const x27 = [400,442,484,568,610];
+    const y27 = 420;
+
+    for (let i=0; i<row27.length; i++){
+      add(row27[i], x27[i], y27, 18);
+    }
+
+    // 34 到 39
+    const row34 = [34,35,36,38,39];
+    const x34 = [400,442,484,568,610];
+    const y34 = 470;
+
+    for (let i=0; i<row34.length; i++){
+      add(row34[i], x34[i], y34, 18);
+    }
+
+    // 41
+    add(41, 526, 495, 18);
+
+    // 右區 90 到 126
+    add(90, 865, 105, 18);
+    const rx = [765,815,865,915];
+    const ry = [150,190,230,270,310,350,390,430,470];
+    const rightRows = [
+      [91,92,93,94],
+      [95,96,97,98],
+      [99,100,101,102],
+      [103,104,105,106],
+      [107,108,109,110],
+      [111,112,113,114],
+      [115,116,117,118],
+      [119,120,121,122],
+      [123,124,125,126]
+    ];
+
+    for (let i=0; i<rightRows.length; i++){
+      for (let j=0; j<4; j++){
+        add(rightRows[i][j], rx[j], ry[i], 18);
+      }
+    }
+
+    // 依桌號取得 seats 內的桌位資料
+    function findSeat(no){
+      return seats.find(s => s.no === String(no));
+    }
+
+    // 顯示桌位資訊到 infoBox
+    // no 為空則顯示預設畫面
+    function showSeatInfo(no){
+      const box = document.getElementById("infoBox");
+      if (!box) return;
+
+      if (!no){
+        box.innerHTML = `
+          <div style="font-weight:800; margin-bottom:6px;">尚未選擇桌位</div>
+          <div style="color:#666; font-size:13px;">請點選桌位顯示桌號與人名。</div>
+        `;
+        return;
+      }
+
+      const seat = findSeat(no);
+      if (!seat){
+        box.innerHTML = `
+          <div style="font-weight:800; margin-bottom:6px;">找不到桌位：${no}</div>
+        `;
+        return;
+      }
+
+      const names = seat.names && seat.names.length ? seat.names : ["此為預備桌"];
+      const list = names.map(n => `<li style="margin:2px 0;">${n}</li>`).join("");
+
+      box.innerHTML = `
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+          <div style="font-weight:900; font-size:16px;">桌號：${seat.no}</div>
+          <div style="color:#666; font-size:13px;">共 ${seat.names.length} 人</div>
+        </div>
+        <ol style="margin:0; padding-left:18px;">
+          ${list}
+        </ol>
+      `;
+    }
+
+    // 將文字轉成安全字串，避免插入 HTML
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, (c)=>({
+        "&":"&amp;",
+        "<":"&lt;",
+        ">":"&gt;",
+        '"':"&quot;",
+        "'":"&#39;"
+      }[c]));
+    }
+
+    // 在 infoBox 顯示錯誤訊息，使用紅色文字
+    function showError(msg, detail=""){
+      const box = document.getElementById("infoBox");
+      if (!box) return;
+
+      box.innerHTML = `
+        <div style="font-weight:900; margin-bottom:6px; color:#e11d48;">${escapeHtml(msg)}</div>
+        ${detail ? `<div style="color:#666; font-size:13px; white-space:pre-wrap;">${escapeHtml(detail)}</div>` : ""}
+      `;
+    }
+
+    // 清除所有桌位的命中標記
+    function clearMarks(){
+      document.querySelectorAll(".seat").forEach(el => el.classList.remove("hit"));
+    }
+
+    // 渲染所有座位到 SVG
+    const seatsG = document.getElementById("seats");
+
+    function seatEl(s){
+      const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+      g.setAttribute("class", "seat" + (s.r>=20 ? " big" : ""));
+      g.dataset.no = s.no;
+
+      // 把此桌所有名字存入 dataset，並轉小寫方便搜尋
+      g.dataset.names = (s.names || []).join(" ").toLowerCase();
+
+      const c = document.createElementNS("http://www.w3.org/2000/svg","circle");
+      c.setAttribute("cx", s.x);
+      c.setAttribute("cy", s.y);
+      c.setAttribute("r", s.r);
+
+      const t = document.createElementNS("http://www.w3.org/2000/svg","text");
+      t.setAttribute("x", s.x);
+      t.setAttribute("y", s.y);
+	  
+      const mainSeats = ["1","2","3","4","5"];
+      t.textContent = mainSeats.includes(s.no) ? `主${s.no}` : s.no;
+
+      g.appendChild(c);
+      g.appendChild(t);
+
+      // 點桌位就高亮並顯示該桌名單
+      g.addEventListener("click", () => {
+        clearMarks();
+        g.classList.add("hit");
+        showSeatInfo(s.no);
+        g.scrollIntoView({behavior:"smooth", block:"center", inline:"center"});
+      });
+
+      return g;
+    }
+
+    seats.forEach(s => seatsG.appendChild(seatEl(s)));
+
+    // 搜尋功能
+    const q = document.getElementById("q");
+    const btnSearch = document.getElementById("btnSearch");
+    const btnReset = document.getElementById("btnReset");
+
+    // 解析輸入文字是否為桌號形式
+    // 支援 單一桌號 例如 127
+    // 支援 多桌號 例如 12, 15, 18
+    // 支援 區間 例如 10-20
+    function parseQueryToNos(text){
+      const t = text.trim();
+      if (!t) return null;
+
+      if (t.includes(",")){
+        const nums = t
+          .split(",")
+          .map(x=>x.trim())
+          .filter(Boolean)
+          .map(x=>Number(x))
+          .filter(n=>Number.isFinite(n))
+          .map(n=>String(n));
+        return nums.length ? Array.from(new Set(nums)) : null;
+      }
+
+      const m = t.match(/^(\d+)\s*-\s*(\d+)$/);
+      if (m){
+        const a = Number(m[1]);
+        const b = Number(m[2]);
+        const lo = Math.min(a,b);
+        const hi = Math.max(a,b);
+        const arr = [];
+        for (let x=lo; x<=hi; x++){
+          arr.push(String(x));
+        }
+        return arr;
+      }
+
+      if (/^\d+$/.test(t)){
+        return [String(Number(t))];
+      }
+
+      return null;
+    }
+
+    // 套用搜尋
+    // 若輸入是桌號就以桌號比對
+    // 若輸入是姓名就以姓名完全相等比對
+    // 若找不到就把錯誤顯示在 infoBox
+    function applySearch(){
+      const text = q.value.trim();
+      clearMarks();
+      if (!text) return;
+
+      const nos = parseQueryToNos(text);
+      const needle = text.toLowerCase();
+
+      let first = null;
+
+      document.querySelectorAll(".seat").forEach(el => {
+        const no = el.dataset.no;
+        const namesStr = el.dataset.names || "";
+        const namesArr = namesStr.split(" ").filter(Boolean);
+
+        let hit = false;
+
+        if (nos && nos.includes(no)) hit = true;
+        if (!hit && !nos && namesArr.some(n => n === needle)) hit = true;
+        if (!hit && needle === "福" && no === "127") hit = true;
+
+        if (hit){
+          el.classList.add("hit");
+          if (!first) first = el;
+        }
+      });
+
+      if (first){
+        first.scrollIntoView({behavior:"smooth", block:"center"});
+        showSeatInfo(first.dataset.no);
+      }else{
+        showError("找不到符合的桌位或姓名", `你輸入的是：${text}`);
+      }
+    }
+
+    // 綁定事件
+    btnSearch.addEventListener("click", applySearch);
+    q.addEventListener("keydown", (e)=>{ if(e.key==="Enter") applySearch(); });
+
+    // 重設：清空搜尋字並回到預設顯示
+    btnReset.addEventListener("click", ()=>{ 
+      q.value = "";
+      clearMarks();
+      showSeatInfo();
+    });
+  </script>
+
+  <script>
+    if ('WebSocket' in window) {
+      (function () {
+        function refreshCSS() {
+          var sheets = [].slice.call(document.getElementsByTagName("link"));
+          var head = document.getElementsByTagName("head")[0];
+          for (var i = 0; i < sheets.length; ++i) {
+            var elem = sheets[i];
+            var parent = elem.parentElement || head;
+            parent.removeChild(elem);
+            var rel = elem.rel;
+            if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
+              var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
+              elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
+            }
+            parent.appendChild(elem);
+          }
+        }
+        var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
+        var address = protocol + window.location.host + window.location.pathname + '/ws';
+        var socket = new WebSocket(address);
+        socket.onmessage = function (msg) {
+          if (msg.data == 'reload') window.location.reload();
+          else if (msg.data == 'refreshcss') refreshCSS();
+        };
+        if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
+          console.log('Live reload enabled.');
+          sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
+        }
+      })();
+    } else {
+      console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
+    }
+  </script>
+</body>
+</html>
